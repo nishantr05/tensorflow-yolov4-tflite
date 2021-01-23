@@ -124,7 +124,8 @@ def image_preprocess(image, target_size, gt_boxes=None):
         gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * scale + dh
         return image_paded, gt_boxes
 
-def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), allowed_classes=list(read_class_names(cfg.YOLO.CLASSES).values()), show_label=True):
+def draw_bbox(image, bboxes, info = False, counted_classes = None, show_label=True, allowed_classes=list(read_class_names(cfg.YOLO.CLASSES).values()), read_plate = False):
+    classes = read_class_names(cfg.YOLO.CLASSES)
     num_classes = len(classes)
     image_h, image_w, _ = image.shape
     hsv_tuples = [(1.0 * x / num_classes, 1., 1.) for x in range(num_classes)]
@@ -136,36 +137,47 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), allowed
     random.seed(None)
 
     out_boxes, out_scores, out_classes, num_boxes = bboxes
-    for i in range(num_boxes[0]):
-        if int(out_classes[0][i]) < 0 or int(out_classes[0][i]) > num_classes: continue
-        coor = out_boxes[0][i]
-        coor[0] = int(coor[0] * image_h)
-        coor[2] = int(coor[2] * image_h)
-        coor[1] = int(coor[1] * image_w)
-        coor[3] = int(coor[3] * image_w)
-
+    for i in range(num_boxes):
+        if int(out_classes[i]) < 0 or int(out_classes[i]) > num_classes: continue
+        coor = out_boxes[i]
         fontScale = 0.5
-        score = out_scores[0][i]
-        class_ind = int(out_classes[0][i])
+        score = out_scores[i]
+        class_ind = int(out_classes[i])
         class_name = classes[class_ind]
-
-        # check if class is in allowed classes
         if class_name not in allowed_classes:
             continue
         else:
+            if read_plate:
+                height_ratio = int(image_h / 25)
+                plate_number = recognize_plate(image, coor)
+                if plate_number != None:
+                    cv2.putText(image, plate_number, (int(coor[0]), int(coor[1]-height_ratio)), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.25, (255,255,0), 2)
+
             bbox_color = colors[class_ind]
             bbox_thick = int(0.6 * (image_h + image_w) / 600)
-            c1, c2 = (coor[1], coor[0]), (coor[3], coor[2])
+            c1, c2 = (coor[0], coor[1]), (coor[2], coor[3])
             cv2.rectangle(image, c1, c2, bbox_color, bbox_thick)
 
+            if info:
+                print("Object found: {}, Confidence: {:.2f}, BBox Coords (xmin, ymin, xmax, ymax): {}, {}, {}, {} ".format(class_name, score, coor[0], coor[1], coor[2], coor[3]))
+
             if show_label:
-                bbox_mess = '%s: %.2f' % (classes[class_ind], score)
+                bbox_mess = '%s: %.2f' % (class_name, score)
                 t_size = cv2.getTextSize(bbox_mess, 0, fontScale, thickness=bbox_thick // 2)[0]
                 c3 = (c1[0] + t_size[0], c1[1] - t_size[1] - 3)
                 cv2.rectangle(image, c1, (np.float32(c3[0]), np.float32(c3[1])), bbox_color, -1) #filled
 
                 cv2.putText(image, bbox_mess, (c1[0], np.float32(c1[1] - 2)), cv2.FONT_HERSHEY_SIMPLEX,
-                            fontScale, (0, 0, 0), bbox_thick // 2, lineType=cv2.LINE_AA)
+                        fontScale, (0, 0, 0), bbox_thick // 2, lineType=cv2.LINE_AA)
+
+            if counted_classes != None:
+                height_ratio = int(image_h / 25)
+                offset = 15
+                for key, value in counted_classes.items():
+                    cv2.putText(image, "{}s detected: {}".format(key, value), (5, offset),
+                            cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 2)
+                    offset += height_ratio
     return image
 
 def bbox_iou(bboxes1, bboxes2):

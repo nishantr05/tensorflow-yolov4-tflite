@@ -84,13 +84,13 @@ def main(_argv):
             iou_threshold=FLAGS.iou,
             score_threshold=FLAGS.score
         )
-        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
+        pred_bbox = [bboxes, scores.numpy()[0], classes.numpy()[0], valid_detections.numpy()[0]]
 
         # read in all class names from config
         class_names = utils.read_class_names(cfg.YOLO.CLASSES)
 
         # by default allow all classes in .names file
-        allowed_classes = list(class_names.values())
+        #allowed_classes = list(class_names.values())
         
         # custom allowed classes (uncomment line below to allow detections for only people)
         allowed_classes = ['person']
@@ -100,13 +100,13 @@ def main(_argv):
         # if count flag is enabled, perform counting of objects
         if FLAGS.count:
             # count objects found
-            counted_classes = count_objects(pred_bbox, by_class = False, allowed_classes=allowed_classes)
+            counted_val = count_persons(pred_bbox, by_class = False, allowed_classes=allowed_classes)
             # loop through dict and print
-            for key, value in counted_classes.items():
-                print("Number of {}s: {}".format(key, value))
-            image = utils.draw_bbox(original_image, pred_bbox, FLAGS.info, counted_classes, allowed_classes=allowed_classes, read_plate = FLAGS.plate)
+            #for value in range(counted_val):
+            print("Number of persons: {}".format(counted_val))
+            image = utils.draw_bbox(original_image, pred_bbox, counted_val, allowed_classes=allowed_classes)
         else:
-            image = utils.draw_bbox(original_image, pred_bbox, FLAGS.info, allowed_classes=allowed_classes, read_plate = FLAGS.plate)
+            image = utils.draw_bbox(original_image, pred_bbox, allowed_classes=allowed_classes)
 
         image = Image.fromarray(image.astype(np.uint8))
         if not FLAGS.dont_show:

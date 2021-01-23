@@ -24,13 +24,11 @@ def count_persons(data):#, by_class = False, allowed_classes = list(read_class_n
         # grab class index and convert into corresponding class name
         class_index = int(classes[i])
         class_name = class_names[class_index]
-        if class_name in allowed_classes:
-            counts[class_name] = counts.get(class_name, 0) + 1
-        else:
-            continue
-
-    # else count total objects found
-    else:
-        counts['total object'] = num_objects
+        if class_name == 'person':
+          count_val += 1
+        #if class_name in allowed_classes:
+        #    counts[class_name] = counts.get(class_name, 0) + 1
+        #else:
+        #    continue
     
-    return counts
+    return count_val

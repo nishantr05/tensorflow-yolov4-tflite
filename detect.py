@@ -27,6 +27,8 @@ flags.DEFINE_float('iou', 0.45, 'iou threshold')
 flags.DEFINE_float('score', 0.25, 'score threshold')
 flags.DEFINE_boolean('dont_show', False, 'dont show image output')
 
+flags.DEFINE_boolean('count', False, 'count of persons in img')
+
 def main(_argv):
     config = ConfigProto()
     config.gpu_options.allow_growth = True
@@ -84,6 +86,10 @@ def main(_argv):
             iou_threshold=FLAGS.iou,
             score_threshold=FLAGS.score
         )
+        # format bounding boxes from normalized ymin, xmin, ymax, xmax ---> xmin, ymin, xmax, ymax
+        original_h, original_w, _ = original_image.shape
+        bboxes = utils.format_boxes(boxes.numpy()[0], original_h, original_w)
+
         pred_bbox = [bboxes, scores.numpy()[0], classes.numpy()[0], valid_detections.numpy()[0]]
 
         # read in all class names from config
@@ -100,7 +106,7 @@ def main(_argv):
         # if count flag is enabled, perform counting of objects
         if FLAGS.count:
             # count objects found
-            counted_val = count_persons(pred_bbox, by_class = False, allowed_classes=allowed_classes)
+            counted_val = count_persons(pred_bbox)#, by_class = False, allowed_classes=allowed_classes)
             # loop through dict and print
             #for value in range(counted_val):
             print("Number of persons: {}".format(counted_val))

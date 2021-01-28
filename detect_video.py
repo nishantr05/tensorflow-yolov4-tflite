@@ -6,6 +6,7 @@ if len(physical_devices) > 0:
 from absl import app, flags, logging
 from absl.flags import FLAGS
 import core.utils as utils
+from core.config import cfg
 from core.yolov4 import filter_boxes
 from tensorflow.python.saved_model import tag_constants
 from PIL import Image
@@ -26,6 +27,8 @@ flags.DEFINE_string('output_format', 'XVID', 'codec used in VideoWriter when sav
 flags.DEFINE_float('iou', 0.45, 'iou threshold')
 flags.DEFINE_float('score', 0.25, 'score threshold')
 flags.DEFINE_boolean('dont_show', False, 'dont show video output')
+
+flags.DEFINE_boolean('count', False, 'count of persons in img')
 
 def main(_argv):
     config = ConfigProto()
@@ -103,21 +106,45 @@ def main(_argv):
             iou_threshold=FLAGS.iou,
             score_threshold=FLAGS.score
         )
-        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
-        image = utils.draw_bbox(frame, pred_bbox)
+        # format bounding boxes from normalized ymin, xmin, ymax, xmax ---> xmin, ymin, xmax, ymax
+        original_h, original_w, _ = frame.shape
+        bboxes = utils.format_boxes(boxes.numpy()[0], original_h, original_w)
+
+        pred_bbox = [bboxes, scores.numpy()[0], classes.numpy()[0], valid_detections.numpy()[0]]
+
+        # read in all class names from config
+        class_names = utils.read_class_names(cfg.YOLO.CLASSES)
+
+        # by default allow all classes in .names file
+        #allowed_classes = list(class_names.values())
+        
+        # custom allowed classes (uncomment line below to allow detections for only people)
+        allowed_classes = ['person']
+
+        # if count flag is enabled, perform counting of objects
+        if FLAGS.count:
+            # count objects found
+            counted_val = count_persons(pred_bbox)#, by_class = False, allowed_classes=allowed_classes)
+            # loop through dict and print
+            #for value in range(counted_val):
+            print("Number of persons: {}".format(counted_val))
+            image = utils.draw_bbox(frame, pred_bbox, counted_val, allowed_classes=allowed_classes)
+        else:
+            image = utils.draw_bbox(frame, pred_bbox, allowed_classes=allowed_classes)
+
         fps = 1.0 / (time.time() - start_time)
         print("FPS: %.2f" % fps)
         result = np.asarray(image)
-        cv2.namedWindow("result", cv2.WINDOW_AUTOSIZE)
+        #cv2.namedWindow("result", cv2.WINDOW_AUTOSIZE)
         result = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         
-        if not FLAGS.dont_show:
-            cv2.imshow("result", result)
+        #if not FLAGS.dont_show:
+            #cv2.imshow("result", result)
         
         if FLAGS.output:
             out.write(result)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
-    cv2.destroyAllWindows()
+    #cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     try:

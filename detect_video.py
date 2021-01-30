@@ -64,7 +64,7 @@ def main(_argv):
         fps = int(vid.get(cv2.CAP_PROP_FPS))
         codec = cv2.VideoWriter_fourcc(*FLAGS.output_format)
         out = cv2.VideoWriter(FLAGS.output, codec, fps, (width, height))
-
+    counter = 0
     while True:
         return_value, frame = vid.read()
         if return_value:
@@ -77,7 +77,17 @@ def main(_argv):
         frame_size = frame.shape[:2]
         image_data = cv2.resize(frame, (input_size, input_size))
         image_data = image_data / 255.
-        image_data = image_data[np.newaxis, ...].astype(np.float32)
+        if counter%40 == 0:
+              temp0 = np.asarray(batch_data)
+              test_img0 = temp[0]
+              #cv2.namedWindow("result", cv2.WINDOW_AUTOSIZE)
+              test_img = cv2.cvtColor(test_img, cv2.COLOR_RGB2BGR)
+              cv2.imwrite('test1'+str(counter)+'.jpg', test_img)
+        images_data = []
+        for i in range(1):
+            images_data.append(image_data)
+        image_data = np.asarray(images_data).astype(np.float32)
+        #image_data = image_data[np.newaxis, ...].astype(np.float32)
         start_time = time.time()
 
         if FLAGS.framework == 'tflite':
@@ -91,11 +101,19 @@ def main(_argv):
                 boxes, pred_conf = filter_boxes(pred[0], pred[1], score_threshold=0.25,
                                                 input_shape=tf.constant([input_size, input_size]))
         else:
+            
             batch_data = tf.constant(image_data)
+            if counter%40 == 0:
+              temp = np.asarray(batch_data)
+              test_img = temp[0]
+              #cv2.namedWindow("result", cv2.WINDOW_AUTOSIZE)
+              test_img = cv2.cvtColor(test_img, cv2.COLOR_RGB2BGR)
+              cv2.imwrite('test1'+str(counter)+'.jpg', test_img)
             pred_bbox = infer(batch_data)
             for key, value in pred_bbox.items():
                 boxes = value[:, :, 0:4]
                 pred_conf = value[:, :, 4:]
+            
 
         boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
             boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
@@ -143,7 +161,9 @@ def main(_argv):
         
         if FLAGS.output:
             out.write(result)
-        if cv2.waitKey(1) & 0xFF == ord('q'): break
+        counter += 1
+      
+        if cv2.waitKey(50) & 0xFF == ord('q'): break
     #cv2.destroyAllWindows()
 
 if __name__ == '__main__':
